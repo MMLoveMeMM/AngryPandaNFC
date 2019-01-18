@@ -4,8 +4,11 @@ import android.content.IntentFilter;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
+import android.nfc.tech.NfcA;
+import android.nfc.tech.NfcB;
 import android.nfc.tech.NfcF;
 import android.nfc.tech.NfcV;
+import android.nfc.tech.TagTechnology;
 import android.os.Parcelable;
 import android.util.Log;
 
@@ -36,11 +39,11 @@ public final class CardReader {
     static {
         try {
             //the tech lists used to perform matching for dispatching of the ACTION_TECH_DISCOVERED intent
-            TECHLISTS = new String[][] { { IsoDep.class.getName() },
-                    { NfcV.class.getName() }, { NfcF.class.getName() }, };
+            TECHLISTS = new String[][]{{IsoDep.class.getName()},
+                    {NfcV.class.getName()}, {NfcF.class.getName()}, {NfcB.class.getName()}, {NfcA.class.getName()},};
 
-            FILTERS = new IntentFilter[] { new IntentFilter(
-                    NfcAdapter.ACTION_TECH_DISCOVERED, "*/*") };
+            FILTERS = new IntentFilter[]{new IntentFilter(
+                    NfcAdapter.ACTION_TECH_DISCOVERED, "*/*")};
         } catch (Exception e) {
         }
     }
@@ -54,6 +57,38 @@ public final class CardReader {
         // In order to communicate with a device using HCE, the discovered tag
         // should be processed
         // using the IsoDep class.
+        if (tag == null) {
+            return null;
+        }
+
+
+        NfcB tagTechnology = NfcB.get(tag);
+        if (tagTechnology == null) {
+            //如果不是ISO 14443-3类型的卡直接返回
+            return null;
+        }
+        String id = getHex(tag.getId());
+        Log.d(TAG, "onTagDiscovered: id = " + id);
+
+        try {
+            if(!tagTechnology.isConnected()) {
+                tagTechnology.connect();
+            }
+            if(tagTechnology.isConnected()){
+                // tagTechnology.transceive(new byte[]{0, 54, 0, 0, 8});
+                byte[] result = tagTechnology.transceive(new byte[]{0, 54, 0, 0, 8});
+                Log.d(TAG, "tagTechnology.transceive : " + ByteArrayToHexString(result));
+                // 00 03 30 01 32
+                byte[] results = tagTechnology.transceive(new byte[]{00,03,30,01,32});
+                Log.d(TAG, "tagTechnology.transceive : " + ByteArrayToHexString(results));
+
+                tagTechnology.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Log.d(TAG, "onTagDiscovered: " + Arrays.toString(tag.getTechList()));
         IsoDep isoDep = IsoDep.get(tag);
         if (isoDep != null) {
             try {
@@ -74,8 +109,8 @@ public final class CardReader {
                 // optional payload, which is used here to hold the account
                 // number.
                 int resultLength = result.length;
-                byte[] statusWord = { result[resultLength - 2],
-                        result[resultLength - 1] };
+                byte[] statusWord = {result[resultLength - 2],
+                        result[resultLength - 1]};
                 byte[] payload = Arrays.copyOf(result, resultLength - 2);
                 if (Arrays.equals(SELECT_OK_SW, statusWord)) {
                     // The remote NFC device will immediately respond with its
@@ -118,10 +153,10 @@ public final class CardReader {
      * @return String, containing hexadecimal representation.
      */
     public static String ByteArrayToHexString(byte[] bytes) {
-        final char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        final char[] hexArray = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
         char[] hexChars = new char[bytes.length * 2];
         int v;
-        for ( int j = 0; j < bytes.length; j++ ) {
+        for (int j = 0; j < bytes.length; j++) {
             v = bytes[j] & 0xFF;
             hexChars[j * 2] = hexArray[v >>> 4];
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
@@ -131,7 +166,7 @@ public final class CardReader {
 
     /**
      * Utility class to convert a hexadecimal string to a byte string.
-     *
+     * <p>
      * <p>Behavior with input strings containing non-hexadecimal characters is undefined.
      *
      * @param s String containing hexadecimal characters to convert
@@ -142,8 +177,24 @@ public final class CardReader {
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+                    + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
+    }
+
+    public static String getHex(byte[] paramArrayOfByte) {
+        StringBuilder localStringBuilder = new StringBuilder();
+        int i = 0;
+        while (true) {
+            if (i >= paramArrayOfByte.length) {
+                return localStringBuilder.toString();
+            }
+            int j = paramArrayOfByte[i] & 0xFF;
+            if (j < 16) {
+                localStringBuilder.append('0');
+            }
+            localStringBuilder.append(Integer.toHexString(j));
+            i += 1;
+        }
     }
 }

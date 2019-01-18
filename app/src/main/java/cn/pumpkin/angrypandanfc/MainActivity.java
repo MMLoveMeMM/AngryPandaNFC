@@ -1,16 +1,31 @@
 package cn.pumpkin.angrypandanfc;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.nfc.NfcAdapter;
 import android.nfc.tech.IsoDep;
 import android.os.Parcelable;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.nfc.Tag;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.sabirjan.reader.tools.Tool;
+
+import cn.pumpkin.angrypandanfc.data.IDCardBean;
+import cn.pumpkin.angrypandanfc.utils.IDCardUtils;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -19,6 +34,11 @@ public class MainActivity extends AppCompatActivity {
     private PendingIntent pendingIntent;
 
     private TextView mNFCText;
+    private Button mBtn;
+    private Button mParseBtn;
+
+    private ImageView imageView;
+    private TextView textView;
 
     @Override
     protected void onStart() {
@@ -32,7 +52,72 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         mNFCText = (TextView) findViewById(R.id.nfctext);
 
+        checkPermission();
+        // verifyStoragePermissions(this);
+
+        imageView=(ImageView)findViewById(R.id.image);
+        textView=(TextView)findViewById(R.id.nfctext);
+
+
+        mBtn = (Button) findViewById(R.id.switchpage);
+        mBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // startActivity(new Intent(MainActivity.this, Main2Activity.class));
+            }
+        });
+
+        mParseBtn = (Button)findViewById(R.id.parse);
+        mParseBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                IDCardBean idCardBean = IDCardUtils.getIdCardDataBean(IDCardUtils.ID);
+                imageView.setImageBitmap(Tool.getBitmap(idCardBean.headImage));
+                textView.setText(idCardBean.toString());
+            }
+        });
     }
+
+    public Bitmap Bytes2Bimap(byte[] b) {
+        if (b.length != 0) {
+            return BitmapFactory.decodeByteArray(b, 0, b.length);
+        } else {
+            return null;
+        }
+    }
+
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE };
+    private void checkPermission() {
+        //检查权限（NEED_PERMISSION）是否被授权 PackageManager.PERMISSION_GRANTED表示同意授权
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            //用户已经拒绝过一次，再次弹出权限申请对话框需要给用户一个解释
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission .WRITE_EXTERNAL_STORAGE)) {
+                Toast.makeText(this, "请开通相关权限，否则无法正常使用本应用！", Toast.LENGTH_SHORT).show();
+            }
+            //申请权限
+            ActivityCompat.requestPermissions(this, PERMISSIONS_STORAGE/*new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}*/, REQUEST_EXTERNAL_STORAGE);
+        }
+            else {
+            Toast.makeText(this, "授权成功！", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "checkPermission: 已经授权！");
+        }
+    }
+
+    public static void verifyStoragePermissions(Activity activity) {
+// Check if we have write permission
+        int permission = ActivityCompat.checkSelfPermission(activity,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+// We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(activity, PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE);
+        }
+    }
+
 
     @Override
     protected void onPause() {
@@ -62,8 +147,12 @@ public class MainActivity extends AppCompatActivity {
         mNFCText.setText((p != null) ? CardReader.load(p) : null);
     }
 
+    private static final int READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A
+            | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK | NfcAdapter.FLAG_READER_NFC_B | NfcAdapter.FLAG_READER_NFC_F
+            | NfcAdapter.FLAG_READER_NFC_V | NfcAdapter.FLAG_READER_NFC_BARCODE;
+
     private void enableReaderMode() {
-        int READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK;
+        // int READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK;
         if (mNfcAdapter != null) {
             mNfcAdapter.enableReaderMode(this, new FindReaderCallback(), READER_FLAGS, null);
         }
@@ -94,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
             MainActivity.this.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.i(TAG,"update ui");
+                    Log.i(TAG, "update ui");
                     mNFCText.setText(CardReader.tagDiscovered(arg0));
                 }
             });
