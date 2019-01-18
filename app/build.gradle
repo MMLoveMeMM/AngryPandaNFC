@@ -35,4 +35,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     // implementation files('libs/ksxy.jar')
     // implementation files('libs/org.apache.http.legacy.jar')
+    implementation files('libs/ksxy.jar')
+    implementation files('libs/org.apache.http.legacy.jar')
 }
